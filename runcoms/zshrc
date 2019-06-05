@@ -29,6 +29,9 @@ bindkey '^h' backward-delete-char
 # ctrl-w removed word backwards
 bindkey '^w' backward-kill-word
 
+# accept autosuggestion
+bindkey '^l' autosuggest-accept
+
 # fasd aliases
 alias v='fasd -f -e vim'
 
