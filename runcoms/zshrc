@@ -12,6 +12,8 @@ fi
 
 # Customize to your needs...
 
+export PATH=$HOME/bin:$PATH
+
 # Remap esc key
 bindkey 'jk' vi-cmd-mode
 
