@@ -14,52 +14,155 @@ if [[ -s "${ZDOTDIR:-$HOME}/.zprezto/init.zsh" ]]; then
   source "${ZDOTDIR:-$HOME}/.zprezto/init.zsh"
 fi
 
+
 #####################################################################
-# Customize to your needs...
+# Powerlevel10k instant prompt (must be near the top)
 #####################################################################
 
-PATH="$HOME/bin:$PATH"
-export PATH
+# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
+# Initialization code that may require console input (password prompts, [y/n]
+# confirmations, etc.) must go above this block, everything else may go below.
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
 
-# MANPATH
-MANPATH="/usr/local/opt/coreutils/libexec/gnuman:$MANPATH"
-export MANPATH
+#####################################################################
+# Paths & manuals
+#####################################################################
+export PATH="$HOME/.pixi/bin:$HOME/bin:$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+export MANPATH="/usr/local/opt/coreutils/libexec/gnuman:$MANPATH"
 
-# Remap esc key
+#####################################################################
+# Shell options & history
+#####################################################################
+setopt autocd extendedglob nomatch
+setopt interactive_comments
+setopt hist_ignore_all_dups hist_reduce_blanks hist_verify
+setopt share_history inc_append_historytime
+export HISTFILE="$HOME/.zsh_history"
+export HISTSIZE=200000
+export SAVEHIST=$HISTSIZE
+export HISTIGNORE="ls:ll:la:l:clear:pwd:cd"
+setopt hist_ignore_space
+
+#####################################################################
+# Vi mode & key bindings
+#####################################################################
+# Cursor shape per mode (beam in insert, block in normal)
+function zle-keymap-select {
+  case $KEYMAP in
+    vicmd)      print -n '\e[1 q' ;;  # block
+    main|viins) print -n '\e[5 q' ;;  # beam
+  esac
+}
+zle -N zle-keymap-select
+print -n '\e[5 q'  # initial beam
+
+# Word style (Bash-like objects)
+autoload -Uz select-word-style
+select-word-style bash
+
+# Your existing bindings
 bindkey 'jk' vi-cmd-mode
-
-# Use vim cli mode
 bindkey '^P' up-history
 bindkey '^N' down-history
-
-# backspace and ^h working even after
-# returning from command mode
 bindkey '^?' backward-delete-char
 bindkey '^h' backward-delete-char
-
-# ctrl-w removed word backwards
 bindkey '^w' backward-kill-word
+bindkey '^l' autosuggest-accept   # requires autosuggestions module via Prezto
 
-# accept autosuggestion
-bindkey '^l' autosuggest-accept
-
-# fasd aliases
-alias v='fasd -f -e nvim'
-#alias vim='nvim'
-alias ipython='ipython --TerminalInteractiveShell.editing_mode=vi'
-
-# lsd aliases
+#####################################################################
+# Aliases (lsd, cp/mv/rm safety, IPython vi-mode)
+#####################################################################
 alias ls='lsd'
 alias l='ls -l'
 alias la='ls -a'
 alias lla='ls -la'
 alias lt='ls --tree'
+alias cp='cp -i'
+alias mv='mv -i'
+alias rm='rm -i'
+alias ipython='ipython --TerminalInteractiveShell.editing_mode=vi'
+
+#####################################################################
+# Quick helpers
+#####################################################################
+#mkcd() { mkdir -p -- "$1" && cd -- "$1"; }
+x() {
+  local file="$1"
+  case "$file" in
+    *.tar.bz2) tar xjf "$file" ;;
+    *.tar.gz)  tar xzf "$file" ;;
+    *.bz2)     bunzip2 "$file" ;;
+    *.gz)      gunzip "$file" ;;
+    *.tar)     tar xf "$file" ;;
+    *.tbz2)    tar xjf "$file" ;;
+    *.tgz)     tar xzf "$file" ;;
+    *.zip)     unzip "$file" ;;
+    *.rar)     unrar x "$file" ;;
+    *)         echo "don't know how to extract '$file'" ;;
+  esac
+}
+#alias clip='pbcopy < /dev/stdin'
+#alias cpr='pwd | tr -d "\n" | pbcopy && echo "(copied path)"'
+
+#####################################################################
+# fasd (kept) and zoxide (new, faster jump)
+#####################################################################
+# fasd alias you had
+alias v='fasd -f -e nvim'
+# zoxide (brew install zoxide)
+eval "$(zoxide init zsh)"
+alias j='z'
+alias ji='zi'
 
 #####################################################################
 # SCM Breeze
 #####################################################################
 
 [ -s "$HOME/.scm_breeze/scm_breeze.sh" ] && source "$HOME/.scm_breeze/scm_breeze.sh"
+
+
+
+#####################################################################
+# FZF defaults + previews (set env before key-bindings)
+#####################################################################
+# brew install fzf fd ripgrep bat
+export FZF_DEFAULT_OPTS=$'--height 40% --layout=reverse --border --info=inline --marker="▶" --bind ctrl-/:toggle-preview'
+export FZF_DEFAULT_COMMAND='fd --hidden --follow --exclude .git'
+export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
+
+_fzf_preview='
+  if [ -d {} ]; then
+    lsd -la --group-dirs=first {}
+  else
+    bat --color=always --style=grid --line-range=:400 {}
+  fi'
+export FZF_CTRL_T_OPTS="--preview='$_fzf_preview'"
+export FZF_ALT_C_OPTS="--preview='lsd -la --group-dirs=first {}'"
+export FZF_COMPLETION_OPTS='--border --info=inline --preview "bat --color=always --style=numbers --line-range=:500 {}"'
+
+# Key bindings & completion scripts (works with brew fzf)
+source <(fzf --zsh)
+
+# Better CTRL-R (fzf history)
+fzf-history-widget() {
+  print -z "$(fc -rl 1 \
+    | cut -c 8- \
+    | fzf --query="$LBUFFER" \
+          --height=40% --layout=reverse --border \
+          --preview 'echo {}' \
+          --preview-window=down,3,wrap)"
+}
+
+zle -N fzf-history-widget
+bindkey '^r' fzf-history-widget
+
+#####################################################################
+# ripgrep defaults
+#####################################################################
+export RIPGREP_CONFIG_PATH="$HOME/.ripgreprc"
 
 #####################################################################
 # Conda initialize
@@ -81,14 +184,50 @@ unset __conda_setup
 # <<< conda initialize <<<
 
 #####################################################################
-# Set up fzf key bindings and fuzzy completion
+# Git: turn off verbose gitstatus logging (faster prompt)
 #####################################################################
+unset GITSTATUS_LOG_LEVEL
 
-source <(fzf --zsh)
+# Git helpers that play nice with SCM Breeze
+glogf() {
+  #local out sha
+  #out=$(
+    #git log --graph --date=short --format='%C(auto)%h%d %C(blue)%ad %Creset%s %Cgreen(%an)' \
+    #| fzf --ansi --no-sort --reverse --height=80% \
+          #--preview 'git show --color=always $(echo {} | sed "s/^[* |\\/]\\+//" | cut -d" " -f1)' \
+          #--preview-window=right,70%
+  #) || return
+  #sha=$(echo "$out" | sed 's/^[* |\/]\+//' | cut -d' ' -f1)
+  #[[ -n "$sha" ]] && git show "$sha"
 
-export FZF_COMPLETION_OPTS='--border --info=inline --preview "bat --color=always --style=numbers --line-range=:500 {}"'
+  local g=(
+      git log
+      --graph
+      --format='%C(auto)%h%d %s %C(white)%C(bold)%cr'
+      --color=always
+      "$@"
+  )
 
-GITSTATUS_LOG_LEVEL=DEBUG
+  local fzf=(
+      fzf
+      --ansi
+      --reverse
+      --tiebreak=index
+      --no-sort
+      --bind=ctrl-s:toggle-sort
+      --preview 'f() { set -- $(echo -- "$@" | grep -o "[a-f0-9]\{7\}"); [ $# -eq 0 ] || git show --color=always $1; }; f {}'
+  )
+  $g | $fzf
+}
+gcof() {
+  local branch
+  branch=$(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes \
+           | sort -u | fzf --height 40% --reverse --ansi) || return
+  git checkout "${branch#origin/}"
+}
+alias gss='git -c color.ui=always status -sb'
+
+#GITSTATUS_LOG_LEVEL=DEBUG
 
 #####################################################################
 # Powerlevel 10k
@@ -100,10 +239,29 @@ source ~/powerlevel10k/powerlevel10k.zsh-theme
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 
-# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
-# Initialization code that may require console input (password prompts, [y/n]
-# confirmations, etc.) must go above this block, everything else may go below.
-if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
-fi
+########
+# Pixi
+########
+eval "$(pixi completion --shell zsh)"
 
+#####################################################################
+# AWS: completion + QoL
+#####################################################################
+# Previous settings KH
+#autoload bashcompinit && bashcompinit
+#autoload -Uz compinit && compinit
+#complete -C '/opt/homebrew/bin/aws_completer' aws
+
+# zsh completion cache (fast) + bashcomp for aws_completer
+autoload -Uz compinit
+if [[ -n "$ZDOTDIR" ]]; then compcache="$ZDOTDIR/.zcompdump"; else compcache="$HOME/.zcompdump"; fi
+compinit -C -d "$compcache"
+
+autoload -Uz bashcompinit
+bashcompinit
+complete -C '/opt/homebrew/bin/aws_completer' aws
+
+export AWS_PAGER=""
+export AWS_DEFAULT_OUTPUT=json
+alias awswho='aws sts get-caller-identity'
+alias awsr='aws configure list-profiles | fzf | xargs -I{} aws --profile {} "$@"'
