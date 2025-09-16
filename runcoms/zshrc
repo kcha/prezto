@@ -189,7 +189,7 @@ unset __conda_setup
 unset GITSTATUS_LOG_LEVEL
 
 # Git helpers that play nice with SCM Breeze
-glogf() {
+glf() {
   #local out sha
   #out=$(
     #git log --graph --date=short --format='%C(auto)%h%d %C(blue)%ad %Creset%s %Cgreen(%an)' \
