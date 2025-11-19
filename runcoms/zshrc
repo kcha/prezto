@@ -146,10 +146,11 @@ export FZF_COMPLETION_OPTS='--border --info=inline --preview "bat --color=always
 # Key bindings & completion scripts (works with brew fzf)
 source <(fzf --zsh)
 
-# Better CTRL-R (fzf history)
+# Better CTRL-R (fzf history) — newest at the top
 fzf-history-widget() {
   local cmd
-  cmd=$(fc -rl 1 | cut -c 8- | fzf --query="$LBUFFER" \
+  cmd=$(fc -lnr 1 | fzf --query="$LBUFFER" \
+    --no-sort --tiebreak=index \
     --height=40% --layout=reverse --border \
     --preview 'echo {}' --preview-window=down,3,wrap) || return
   LBUFFER=$cmd
