@@ -240,23 +240,21 @@ source ~/powerlevel10k/powerlevel10k.zsh-theme
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 
-########
-# Pixi
-########
-eval "$(pixi completion --shell zsh)"
+#####################################################################
+# Completion system (zsh + cache)
+#####################################################################
+
+autoload -Uz compinit
+if [[ -n "$ZDOTDIR" ]]; then
+  compcache="$ZDOTDIR/.zcompdump"
+else
+  compcache="$HOME/.zcompdump"
+fi
+compinit -C -d "$compcache"
 
 #####################################################################
 # AWS: completion + QoL
 #####################################################################
-# Previous settings KH
-#autoload bashcompinit && bashcompinit
-#autoload -Uz compinit && compinit
-#complete -C '/opt/homebrew/bin/aws_completer' aws
-
-# zsh completion cache (fast) + bashcomp for aws_completer
-autoload -Uz compinit
-if [[ -n "$ZDOTDIR" ]]; then compcache="$ZDOTDIR/.zcompdump"; else compcache="$HOME/.zcompdump"; fi
-compinit -C -d "$compcache"
 
 autoload -Uz bashcompinit
 bashcompinit
@@ -266,3 +264,11 @@ export AWS_PAGER=""
 export AWS_DEFAULT_OUTPUT=json
 alias awswho='aws sts get-caller-identity'
 alias awsr='aws configure list-profiles | fzf | xargs -I{} aws --profile {} "$@"'
+
+########
+# Pixi
+########
+
+if command -v pixi >/dev/null 2>&1; then
+  eval "$(pixi completion --shell zsh)"
+fi
