@@ -146,19 +146,47 @@ export FZF_COMPLETION_OPTS='--border --info=inline --preview "bat --color=always
 # Key bindings & completion scripts (works with brew fzf)
 source <(fzf --zsh)
 
-# Better CTRL-R (fzf history) — newest at the top
+# CTRL-R: prefix matches first, then fuzzy; both groups newest-first
 fzf-history-widget() {
-  local cmd
-  cmd=$(fc -lnr 1 | fzf --query="$LBUFFER" \
-    --no-sort --tiebreak=index \
-    --height=40% --layout=reverse --border \
-    --preview 'echo {}' --preview-window=down,3,wrap) || return
-  LBUFFER=$cmd
+  emulate -L zsh
+  setopt pipefail no_aliases
+
+  local query selected
+
+  # Current buffer becomes initial query (fzf uses it, but we also use it to build ordering)
+  query="$LBUFFER"
+
+  # Build candidate list newest-first once, then reorder:
+  # - lines that start with the query (prefix) come first
+  # - remaining lines follow
+  # Both groups preserve recency because we never sort.
+  selected="$(
+    fc -lnr 1 \
+    | awk -v q="$query" '
+        BEGIN { IGNORECASE=0 }
+        {
+          if (q != "" && index($0, q) == 1) { pref[++p] = $0 }
+          else { rest[++r] = $0 }
+        }
+        END {
+          for (i=1; i<=p; i++) print pref[i]
+          for (i=1; i<=r; i++) print rest[i]
+        }
+      ' \
+    | fzf --query="$query" \
+          --no-sort --tiebreak=index \
+          --height=40% --layout=reverse --border \
+          --bind 'tab:toggle+down' \
+          --preview 'echo {}' --preview-window=down,3,wrap
+  )" || return
+
+  LBUFFER="$selected"
   zle redisplay
   zle vi-insert
 }
 zle -N fzf-history-widget
 bindkey '^r' fzf-history-widget
+
 
 #####################################################################
 # ripgrep defaults
